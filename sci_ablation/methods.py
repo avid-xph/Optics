@@ -1,0 +1,104 @@
+"""三类重建方法的统一注册表.
+
+每个方法实现为类, 统一接口:
+    reconstruct(E, cup, T) -> (B,T,H,W) in [0,1] 附近
+  E: (B,1,H,Wm) 含噪测量; cup: ExperimentCUP（自带 mask/cell/noise 设置）。
+
+  iterative : TwIST / ADMM-L1 / ADMM-TV / BP —— 对 H,W,T 不敏感（即插即用）
+  ddmadun   : 现有 P4 权重（仅 T=8）, 用于固定 T=8 的消融点
+  e2e       : E2ECubeNet, 按训练时的 T 加载权重
+"""
+import os
+import torch
+
+from baselines import (twist_reconstruct, admm_l1_reconstruct,
+                       admm_tv_reconstruct, bp_reconstruct)
+from sci_ablation.e2e_model import E2ECubeNet, build_e2e_input
+
+_BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+class IterativeMethod:
+    """TwIST / ADMM-L1 / ADMM-TV / BP, 任意 T 即插即用."""
+
+    name = "iterative"
+
+    def __init__(self, algo="twist", **kwargs):
+        assert algo in ("twist", "admm_l1", "admm_tv", "bp")
+        self.algo = algo
+        self.kw = kwargs
+
+    def reconstruct(self, E, cup, T):
+        if self.algo == "bp":
+            return bp_reconstruct(E, cup.adjoint)
+        fn = {"twist": twist_reconstruct, "admm_l1": admm_l1_reconstruct,
+              "admm_tv": admm_tv_reconstruct}[self.algo]
+        return fn(E, cup.forward, cup.adjoint, T, cup.H, cup.W,
+                 real_cup=True, **self.kw)
+
+
+class DDMADUNMethod:
+    """DD-MADUN v3 deep unfolding. 现有权重仅 T=8, 其他 T 报错跳过."""
+
+    name = "ddmadun"
+
+    def __init__(self, ckpt=None, T=8, device="cpu"):
+        from dd_madun_v3 import DD_MADUNv3
+        self.T = T
+        ckpt = ckpt or os.path.join(_BASE, "checkpoints", "best_model.pth")
+        self.model = DD_MADUNv3(T=T, H=None, W=None, K=8, K1=3, ng=6, nf=96, nb=8).to(device)
+        data = torch.load(ckpt, map_location=device, weights_only=False)
+        sd = data["model_state_dict"] if isinstance(data, dict) and "model_state_dict" in data else data
+        self.model.load_state_dict(sd)
+        self.model.eval()
+        self.device = device
+
+    def reconstruct(self, E, cup, T):
+        if T != self.T:
+            raise RuntimeError(f"DD-MADUN 权重绑定 T={self.T}, 无法评测 T={T}"
+                               "（这正是任务①要解决的依赖）")
+        with torch.no_grad():
+            I, _ = self.model(E.to(self.device), cup.forward, cup.adjoint)
+        return torch.clamp(I, 0, 1)
+
+
+class E2EMethod:
+    """End-to-end 网络, 按训练时的 T 加载权重, 其他 T 报错跳过."""
+
+    name = "e2e"
+
+    def __init__(self, ckpt, T=8, nf=48, nb=2, device="cpu"):
+        self.T = T
+        self.model = E2ECubeNet(T=T, nf=nf, nb=nb).to(device)
+        sd = torch.load(ckpt, map_location=device, weights_only=False)
+        sd = sd["model_state_dict"] if isinstance(sd, dict) and "model_state_dict" in sd else sd
+        self.model.load_state_dict(sd)
+        self.model.eval()
+        self.device = device
+
+    def reconstruct(self, E, cup, T):
+        if T != self.T:
+            raise RuntimeError(f"E2E 网络绑定 T={self.T}, 无法评测 T={T}")
+        E = E.to(self.device)
+        with torch.no_grad():
+            x = build_e2e_input(cup, E)
+            out = self.model(x)
+        return torch.clamp(out, 0, 1)
+
+
+REGISTRY = {
+    "twist":     lambda cfg: IterativeMethod("twist", **cfg.get("iter_kw", {})),
+    "admm_l1":   lambda cfg: IterativeMethod("admm_l1", **cfg.get("iter_kw", {})),
+    "admm_tv":   lambda cfg: IterativeMethod("admm_tv", **cfg.get("iter_kw", {})),
+    "bp":        lambda cfg: IterativeMethod("bp"),
+    "ddmadun":   lambda cfg: DDMADUNMethod(ckpt=cfg.get("ckpt"), T=cfg.get("T", 8),
+                                           device=cfg.get("device", "cpu")),
+    "e2e":       lambda cfg: E2EMethod(ckpt=cfg["ckpt"], T=cfg.get("T", 8),
+                                       nf=cfg.get("nf", 48), nb=cfg.get("nb", 2),
+                                       device=cfg.get("device", "cpu")),
+}
+
+
+def build_method(key, cfg=None):
+    cfg = cfg or {}
+    return REGISTRY[key](cfg)
