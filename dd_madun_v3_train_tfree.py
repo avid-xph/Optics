@@ -60,9 +60,10 @@ parser.add_argument("--frames_per_batch", type=int, default=32,
 parser.add_argument("--noise_std", type=float, default=0.01)
 parser.add_argument("--motion_blur_prob", type=float, default=0.0,
                     help="probability per training clip of applying a directional "
-                         "motion-blur kernel (0 = disabled, matches old behavior); "
-                         "applied both at dataset build time (video_dataset.py) and "
-                         "as live per-batch augmentation below")
+                         "motion-blur kernel (0 = disabled, matches old behavior). "
+                         "Applied as live per-batch augmentation in augment(); the "
+                         "dataset-build-time variant is unavailable in this repo "
+                         "because video_dataset.py predates it")
 parser.add_argument("--motion_blur_len_min", type=int, default=3,
                     help="min motion-blur kernel length in pixels")
 parser.add_argument("--motion_blur_len_max", type=int, default=15,
@@ -225,12 +226,15 @@ class MultiTSampler:
 print("\n[1/6] Building datasets (one per T) ...")
 data_by_T = {}
 n_per_T = max(1, args.n_train // len(T_LIST))
+# NOTE: this repo's video_dataset.py has no motion_blur_prob, so blur is applied
+# live per batch only (see augment() below). Upgrading video_dataset.py would
+# change create_mixed_dataset's internals and therefore the training-data
+# distribution, so it is deliberately left alone.
 for T in T_LIST:
     tr, te = create_mixed_dataset(
         n_train=n_per_T, n_test=1, T=T, H=args.H, W=args.W,
         real_ratio=args.real_ratio, davis_root=args.davis_root,
-        seed=args.seed + T, n_objects=args.n_objects,
-        motion_blur_prob=args.motion_blur_prob)
+        seed=args.seed + T, n_objects=args.n_objects)
     data_by_T[T] = tr
     print(f"    T={T:2d}: train={tuple(tr.shape)}  (B={batch_size_for(T)})")
 
