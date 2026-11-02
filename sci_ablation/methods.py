@@ -98,9 +98,12 @@ class E2EMethod:
 
     def __init__(self, ckpt, T=8, nf=48, nb=2, device="cpu"):
         self.T = T
-        self.model = E2ECubeNet(T=T, nf=nf, nb=nb).to(device)
         sd = torch.load(ckpt, map_location=device, weights_only=False)
-        sd = sd["model_state_dict"] if isinstance(sd, dict) and "model_state_dict" in sd else sd
+        if isinstance(sd, dict) and "model_state_dict" in sd:
+            cfg = sd.get("config") or {}       # train_e2e.py 保存的结构参数优先
+            nf, nb = cfg.get("nf", nf), cfg.get("nb", nb)
+            sd = sd["model_state_dict"]
+        self.model = E2ECubeNet(T=T, nf=nf, nb=nb).to(device)
         self.model.load_state_dict(sd)
         self.model.eval()
         self.device = device
