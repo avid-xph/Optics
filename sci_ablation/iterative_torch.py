@@ -29,8 +29,9 @@ def _cg(op, b, x, n_iter):
     return x
 
 
-def _lipschitz(fwd, adj, shape, device, n_iter=30):
-    v = torch.randn(shape, device=device)
+def _lipschitz(fwd, adj, shape, device, n_iter=30, seed=0):
+    g = torch.Generator(device=device).manual_seed(seed)
+    v = torch.randn(shape, device=device, generator=g)
     for _ in range(n_iter):
         v = adj(fwd(v))
         v = v / v.norm()
