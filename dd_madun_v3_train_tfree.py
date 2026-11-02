@@ -358,7 +358,9 @@ for epoch in range(1, args.epochs + 1):
                   f"model_fwd+loss={t_modelfwd-t_cupfwd:6.2f}s  "
                   f"backward={t_backward-t_modelfwd:6.2f}s  "
                   f"opt+ema={t_opt-t_backward:6.2f}s  "
-                  f"total={t_opt-t_step0:6.2f}s", flush=True)
+                  f"total={t_opt-t_step0:6.2f}s  "
+                  f"peak={torch.cuda.max_memory_allocated()/2**30:5.2f}GiB "
+                  f"resv={torch.cuda.max_memory_reserved()/2**30:5.2f}GiB", flush=True)
         elif args.log_every > 0 and global_step % args.log_every == 0:
             print(f"  [step {global_step:5d}] epoch {epoch}/{args.epochs} b {b}/{n_batches} "
                   f"T={T:2d} B={B} loss={loss.item():.4f} "
