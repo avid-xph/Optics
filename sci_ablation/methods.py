@@ -11,15 +11,15 @@
 import os
 import torch
 
-from baselines import (twist_reconstruct, admm_l1_reconstruct,
-                       admm_tv_reconstruct, bp_reconstruct)
+from baselines import bp_reconstruct
+from sci_ablation import iterative_torch
 from sci_ablation.e2e_model import E2ECubeNet, build_e2e_input
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class IterativeMethod:
-    """TwIST / ADMM-L1 / ADMM-TV / BP, 任意 T 即插即用."""
+    """TwIST / ADMM-L1 / ADMM-TV / BP, 任意 T 即插即用（torch 实现, 跟随 cup 所在 device）."""
 
     name = "iterative"
 
@@ -31,10 +31,8 @@ class IterativeMethod:
     def reconstruct(self, E, cup, T):
         if self.algo == "bp":
             return bp_reconstruct(E, cup.adjoint)
-        fn = {"twist": twist_reconstruct, "admm_l1": admm_l1_reconstruct,
-              "admm_tv": admm_tv_reconstruct}[self.algo]
-        return fn(E, cup.forward, cup.adjoint, T, cup.H, cup.W,
-                 real_cup=True, **self.kw)
+        fn = getattr(iterative_torch, self.algo)
+        return fn(E, cup.forward, cup.adjoint, T, **self.kw)
 
 
 class DDMADUNMethod:
