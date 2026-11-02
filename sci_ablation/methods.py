@@ -6,6 +6,7 @@
 
   iterative : TwIST / ADMM-L1 / ADMM-TV / BP —— 对 H,W,T 不敏感（即插即用）
   ddmadun   : 现有 P4 权重（仅 T=8）, 用于固定 T=8 的消融点
+  tfree     : DD_MADUN_TFree, 同一套权重可评任意 T（任务①）
   e2e       : E2ECubeNet, 按训练时的 T 加载权重
 """
 import os
@@ -62,6 +63,34 @@ class DDMADUNMethod:
         return torch.clamp(I, 0, 1)
 
 
+class TFreeMethod:
+    """DD-MADUN T-free, 一套权重跑任意 T. 结构 (nf, nb, K, K1) 从权重推断."""
+
+    name = "tfree"
+
+    def __init__(self, ckpt, ng=6, device="cpu"):
+        from dd_madun_tfree import DD_MADUN_TFree, make_mask_w
+        from eval_tfree import load_ckpt, infer_arch
+        sd, _, cfg = load_ckpt(ckpt, device)
+        nf, nb, K, K1 = infer_arch(sd)
+        self.model = DD_MADUN_TFree(K=K, K1=K1, ng=ng, nf=nf, nb=nb).to(device)
+        self.model.load_state_dict(sd)
+        self.model.eval()
+        self.cfg = cfg or {}
+        self.make_mask_w = make_mask_w
+        self.device = device
+
+    def reconstruct(self, E, cup, T):
+        # mask_w 按当前实验的 mask 生成（训练时开了 mask_dc 才用）
+        mw = None
+        if self.cfg.get("mask_dc", False):
+            mw = self.make_mask_w(cup.mask, self.cfg.get("mask_dc_thr", 0.05),
+                                  self.cfg.get("mask_dc_soft", 0.05))
+        with torch.no_grad():
+            I, _ = self.model(E.to(self.device), cup.forward, cup.adjoint, mw)
+        return torch.clamp(I, 0, 1)
+
+
 class E2EMethod:
     """End-to-end 网络, 按训练时的 T 加载权重, 其他 T 报错跳过."""
 
@@ -93,7 +122,9 @@ REGISTRY = {
     "bp":        lambda cfg: IterativeMethod("bp"),
     "ddmadun":   lambda cfg: DDMADUNMethod(ckpt=cfg.get("ckpt"), T=cfg.get("T", 8),
                                            device=cfg.get("device", "cpu")),
-    "e2e":       lambda cfg: E2EMethod(ckpt=cfg["ckpt"], T=cfg.get("T", 8),
+    "tfree":     lambda cfg: TFreeMethod(ckpt=cfg["ckpt"], ng=cfg.get("ng", 6),
+                                         device=cfg.get("device", "cpu")),
+    "e2e":      lambda cfg: E2EMethod(ckpt=cfg["ckpt"], T=cfg.get("T", 8),
                                        nf=cfg.get("nf", 48), nb=cfg.get("nb", 2),
                                        device=cfg.get("device", "cpu")),
 }

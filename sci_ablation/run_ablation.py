@@ -15,7 +15,8 @@
 完整矩阵（远程 GPU / 长时）:
   python -m sci_ablation.run_ablation --exp joint \
       --Ts 8 12 16 20 24 28 32 --cells 1 2 3 4 5 6 8 10 \
-      --methods twist admm_l1 admm_tv ddmadun e2e
+      --methods twist admm_l1 admm_tv ddmadun tfree e2e \
+      --ckpt tfree=output_tfree_mix/best_model.pth e2e=output_e2e_T{T}/best_model.pth
 """
 import argparse
 import csv
@@ -75,6 +76,9 @@ def main():
     ap.add_argument("--scenes", nargs="+", default=data.FILES)
     ap.add_argument("--methods", nargs="+", default=["twist"])
     ap.add_argument("--iters", type=int, default=None, help="迭代法迭代数（本地小跑用）")
+    ap.add_argument("--ckpt", nargs="+", default=[], metavar="METHOD=PATH",
+                    help="网络方法的权重, 如 tfree=output_tfree_mix/best_model.pth "
+                         "e2e=output_e2e_T{T}/best_model.pth（{T} 按当前 T 替换）")
     ap.add_argument("--H", type=int, default=256)
     ap.add_argument("--W", type=int, default=256)
     ap.add_argument("--shear", type=int, default=1)
@@ -83,6 +87,7 @@ def main():
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--out", required=True, help="输出 CSV 路径")
     args = ap.parse_args()
+    ckpts = dict(kv.split("=", 1) for kv in args.ckpt)
 
     # 实验矩阵展开
     if args.exp == "T":
@@ -113,6 +118,8 @@ def main():
                         cfg["iter_kw"] = {"n_iters": args.iters}
                     if mkey in ("ddmadun", "e2e"):
                         cfg["T"] = T
+                    if mkey in ckpts:
+                        cfg["ckpt"] = ckpts[mkey].replace("{T}", str(T))
                     method = build_method(mkey, cfg)
                     rows = evaluate(method, scene, T, cell, noise,
                                     H, W, args.shear, args.seed, args.device,
