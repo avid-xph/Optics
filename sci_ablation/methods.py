@@ -6,7 +6,7 @@
 
   iterative : TwIST / ADMM-L1 / ADMM-TV / BP —— 对 H,W,T 不敏感（即插即用）
   ddmadun   : 现有 P4 权重（仅 T=8）, 用于固定 T=8 的消融点
-  tfree     : DD_MADUN_TFree, 同一套权重可评任意 T（任务①）
+  tfree     : dd_madun_v3_tfree.DD_MADUNv3, 同一套权重可评任意 T（任务①）
   e2e       : E2ECubeNet, 按训练时的 T 加载权重
 """
 import os
@@ -62,31 +62,28 @@ class DDMADUNMethod:
 
 
 class TFreeMethod:
-    """DD-MADUN T-free, 一套权重跑任意 T. 结构 (nf, nb, K, K1) 从权重推断."""
+    """DD-MADUN T-free (dd_madun_v3_tfree), 一套权重跑任意 T.
+    结构 (K, K1, nf, nb) 从权重推断, ng / temporal 从 ckpt config 读."""
 
     name = "tfree"
 
-    def __init__(self, ckpt, ng=6, device="cpu"):
-        from dd_madun_tfree import DD_MADUN_TFree, make_mask_w
-        from eval_tfree import load_ckpt, infer_arch
-        sd, _, cfg = load_ckpt(ckpt, device)
-        nf, nb, K, K1 = infer_arch(sd)
-        self.cfg = cfg or {}
-        ng = self.cfg.get("n_gd_steps", ng)  # ng 不在 state_dict 里, 优先用训练 config
-        self.model = DD_MADUN_TFree(K=K, K1=K1, ng=ng, nf=nf, nb=nb).to(device)
+    def __init__(self, ckpt, ng=None, final_prox=True, device="cpu"):
+        from dd_madun_v3_tfree import DD_MADUNv3
+        from ckpt_utils import resolve_model_cfg
+        raw = torch.load(ckpt, map_location=device, weights_only=False)
+        sd = raw["model_state_dict"] if "model_state_dict" in raw else raw
+        c = resolve_model_cfg(raw, overrides={"ng": ng})
+        if c.get("legacy_T"):
+            raise RuntimeError(f"{ckpt} 是 T-bound 权重 (T={c['legacy_T']}), 不是 T-free")
+        self.model = DD_MADUNv3(K=c["K"], K1=c["K1"], ng=c["ng"], nf=c["nf"], nb=c["nb"],
+                                temporal=c["temporal"], final_prox=final_prox).to(device)
         self.model.load_state_dict(sd)
         self.model.eval()
-        self.make_mask_w = make_mask_w
         self.device = device
 
     def reconstruct(self, E, cup, T):
-        # mask_w 按当前实验的 mask 生成（训练时开了 mask_dc 才用）
-        mw = None
-        if self.cfg.get("mask_dc", False):
-            mw = self.make_mask_w(cup.mask, self.cfg.get("mask_dc_thr", 0.05),
-                                  self.cfg.get("mask_dc_soft", 0.05))
         with torch.no_grad():
-            I, _ = self.model(E.to(self.device), cup.forward, cup.adjoint, mw)
+            I, _ = self.model(E.to(self.device), cup.forward, cup.adjoint)
         return torch.clamp(I, 0, 1)
 
 
@@ -124,7 +121,8 @@ REGISTRY = {
     "bp":        lambda cfg: IterativeMethod("bp"),
     "ddmadun":   lambda cfg: DDMADUNMethod(ckpt=cfg.get("ckpt"), T=cfg.get("T", 8),
                                            device=cfg.get("device", "cpu")),
-    "tfree":     lambda cfg: TFreeMethod(ckpt=cfg["ckpt"], ng=cfg.get("ng", 6),
+    "tfree":     lambda cfg: TFreeMethod(ckpt=cfg["ckpt"], ng=cfg.get("ng"),
+                                         final_prox=cfg.get("final_prox", True),
                                          device=cfg.get("device", "cpu")),
     "e2e":      lambda cfg: E2EMethod(ckpt=cfg["ckpt"], T=cfg.get("T", 8),
                                        nf=cfg.get("nf", 48), nb=cfg.get("nb", 2),
