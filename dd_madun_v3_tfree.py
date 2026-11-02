@@ -1,6 +1,7 @@
 """DD-MADUN v3: P0 Improvements (CBAM + freq band + edge loss)"""
 import torch,torch.nn as nn,torch.nn.functional as F,numpy as np
 import torch.utils.checkpoint
+T_REF=8   # T the legacy (warm-start) weights were trained on; see DD_MADUNv3.forward
 def build_dct_matrix(T):
   n=np.arange(T);k=np.arange(T).reshape(-1,1)
   D=np.cos(np.pi/T*k*(n+0.5));D[0]/=np.sqrt(2)
@@ -197,6 +198,14 @@ class DD_MADUNv3(nn.Module):
     B=E.shape[0]
     x=adj(E)
     T=x.shape[1]                       # T is dictated by the operator, not by self.T
+    # ||A^T A|| grows ~linearly with T (measured 8.0/15.5/20.0/25.1 at T=8/16/24/32),
+    # so DC step sizes learned at T_REF diverge at larger T. Scale the adjoint by
+    # T_REF/T: the data-term Lipschitz constant stays at the T_REF level and
+    # T=T_REF is bit-identical to the legacy model.
+    s=T_REF/T
+    if s!=1.0:
+      adj=lambda r,_adj=adj:_adj(r)*s
+      x=x*s
     dm=self._get_dm(T,x.device)        # DCT matrix matched to this T
     if mask_w is not None:
       # Plan B init: dark regions (mask_w~0) start from the bright-region mean
