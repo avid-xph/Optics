@@ -73,10 +73,11 @@ class TFreeMethod:
         from eval_tfree import load_ckpt, infer_arch
         sd, _, cfg = load_ckpt(ckpt, device)
         nf, nb, K, K1 = infer_arch(sd)
+        self.cfg = cfg or {}
+        ng = self.cfg.get("n_gd_steps", ng)  # ng 不在 state_dict 里, 优先用训练 config
         self.model = DD_MADUN_TFree(K=K, K1=K1, ng=ng, nf=nf, nb=nb).to(device)
         self.model.load_state_dict(sd)
         self.model.eval()
-        self.cfg = cfg or {}
         self.make_mask_w = make_mask_w
         self.device = device
 
