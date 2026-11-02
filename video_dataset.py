@@ -202,17 +202,36 @@ def create_mixed_dataset(n_train=2000, n_test=20, T=8, H=256, W=256,
     n_real_test = 0  # Keep test all synthetic for fair comparison with benchmark
     n_synth_test = n_test
 
-    print(f"  [MixedDataset] DAVIS sequences: {len(sequences)}")
+    # _load_davis_sequences() only guarantees each sequence has >= 8 frames, but
+    # this call's T can be up to 32 (multi-T training). A sequence with e.g.
+    # 8-27 frames is unusable for T=28/32 -- np.random.randint(0, n_frames - T
+    # + 1) would get a non-positive `high` and crash. Filter down to sequences
+    # that are actually long enough for THIS call's T, and treat "no eligible
+    # sequence" like "DAVIS not found" (fall back to synthetic instead of
+    # crashing). No behaviour change when every sequence is long enough.
+    eligible_sequences = [s for s in sequences if len(s) >= T]
+    davis_unavailable = n_real_train > 0 and len(sequences) == 0
+    davis_too_short = n_real_train > 0 and len(sequences) > 0 and len(eligible_sequences) == 0
+    if davis_unavailable or davis_too_short:
+        n_synth_train = n_train
+        n_real_train = 0
+
+    print(f"  [MixedDataset] DAVIS sequences: {len(sequences)}"
+          + (f" ({len(eligible_sequences)} with >= {T} frames)" if len(sequences) > 0 else ""))
     print(f"  [MixedDataset] Train: {n_real_train} real + {n_synth_train} synth = {n_train}")
     print(f"  [MixedDataset] Test: {n_real_test} real + {n_synth_test} synth = {n_test}")
+    if davis_unavailable:
+        print("  [MixedDataset] DAVIS not found, using enhanced synthetic instead")
+    elif davis_too_short:
+        print(f"  [MixedDataset] no DAVIS sequence has >= {T} frames, using enhanced synthetic instead")
 
     # ---- Training data ----
     train_clips = []
 
     # Real video clips
-    if n_real_train > 0 and len(sequences) > 0:
+    if n_real_train > 0 and len(eligible_sequences) > 0:
         for i in range(n_real_train):
-            seq = sequences[rng.randint(0, len(sequences))]
+            seq = eligible_sequences[rng.randint(0, len(eligible_sequences))]
             clip = _load_clip(seq, T, H, W)
             clip = _augment_clip(clip)
             train_clips.append(clip)
