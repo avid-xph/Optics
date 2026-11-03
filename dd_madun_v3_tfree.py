@@ -2,6 +2,9 @@
 import torch,torch.nn as nn,torch.nn.functional as F,numpy as np
 import torch.utils.checkpoint
 T_REF=8   # T the legacy (warm-start) weights were trained on; see DD_MADUNv3.forward
+SCALE_X0=True  # also scale the init x0=adj(E) by T_REF/T. See DD_MADUNv3.forward;
+               # only the data-term GRADIENT needs scaling for step-size stability,
+               # so leaving x0 unscaled is the (numerically) cleaner variant.
 def build_dct_matrix(T):
   n=np.arange(T);k=np.arange(T).reshape(-1,1)
   D=np.cos(np.pi/T*k*(n+0.5));D[0]/=np.sqrt(2)
@@ -205,7 +208,8 @@ class DD_MADUNv3(nn.Module):
     s=T_REF/T
     if s!=1.0:
       adj=lambda r,_adj=adj:_adj(r)*s
-      x=x*s
+      if SCALE_X0:
+        x=x*s
     dm=self._get_dm(T,x.device)        # DCT matrix matched to this T
     if mask_w is not None:
       # Plan B init: dark regions (mask_w~0) start from the bright-region mean
