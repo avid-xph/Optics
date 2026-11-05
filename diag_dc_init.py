@@ -75,47 +75,23 @@ for seed in (0, 1):
         psnrA = 10 * torch.log10(torch.tensor(1.0 / max(mseA, 1e-30))).item()
         rows.append((psnrA, outA.abs().max().item()))
 
-        # Variant B: no x0 scaling.  We achieve this by passing a pre-scaled
-        # measurement E*B_scale to the model and an adjoint that is pre-divided
-        # by s, so the model's internal adj(E)*s cancels out for x0 but NOT for
-        # the data-term gradient (which is correct — we only want to test the
-        # init).  Simplest correct approach: directly swap the model's forward
-        # by temporarily replacing it.
-        orig_fwd = M.DD_MADUNv3.forward
+        # Variant B: no x0 scaling, data-term gradient still scaled.
+        # forward() computes x0 = adj(E) as its FIRST adjoint call and then
+        # multiplies by s; every later call goes through adj*s (DC gradient).
+        # Dividing only that first call by s cancels the init scaling and
+        # leaves the real forward untouched.
+        calls = [0]
 
-        def _fwd_noscale(self, E, fwd, adj, mask_w=None):
-            B = E.shape[0]
-            x = adj(E)                    # unscaled init
-            T = x.shape[1]
-            s = M.T_REF / T
-            if s != 1.0:
-                adj = lambda r, _adj=adj: _adj(r) * s   # gradient still scaled
-                # NOTE: deliberately skip x=x*s (variant B only)
-            dm = self._get_dm(T, x.device)
-            if mask_w is not None:
-                xb = x * mask_w
-                msum = mask_w.sum(dim=[2, 3], keepdim=True).clamp(min=1e-6)
-                mmean = xb.sum(dim=[2, 3], keepdim=True) / msum
-            else:
-                mmean = None
-            xs = x * 0.5 + 0.5 if x.min() < 0 else x
-            xt = M.dct_along_time(xs, dm)
-            for i in range(self.K):
-                xt = self.blocks[i](xt)
-                if i < self.K - self.K1:
-                    xd = M.idct_along_time(xt, dm)
-                    xd = self.dc(xd, E, fwd, adj, mask_w, mmean)
-                    xt = M.dct_along_time(xd, dm)
-            out = M.idct_along_time(xt, dm)
-            return out
+        def adj_B(r):
+            calls[0] += 1
+            out = cup.adjoint(r)
+            return out / s if calls[0] == 1 else out
 
-        M.DD_MADUNv3.forward = _fwd_noscale
-        outB = model(E, cup.forward, cup.adjoint)
+        outB = model(E, cup.forward, adj_B)
         outB = outB[0] if isinstance(outB, tuple) else outB
         mseB = ((outB - gt) ** 2).mean().item()
         psnrB = 10 * torch.log10(torch.tensor(1.0 / max(mseB, 1e-30))).item()
         rows.append((psnrB, outB.abs().max().item()))
-        M.DD_MADUNv3.forward = orig_fwd   # restore
 
     print(f"{T:3d} {lam:10.2f} {rA:8.2f} {rB:8.2f} | "
           f"{rows[0][0]:10.2f} {rows[0][1]:11.3f} | "
