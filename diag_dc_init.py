@@ -8,8 +8,9 @@ learned DC step sizes / momentum) at the T_REF level. It does that in two places
 
 Both grow ~linearly with T: E is the sum of T sheared frames, so ||E|| ~ T;
 the adjoint copies E back into T frames, giving each frame ~T x the single-frame
-magnitude. Measured ||A^T A|| on 256x256 (x=rand): T=8/16/24/32 = 2.23/4.17/6.07/7.93,
-roughly linear. Scaling x0 by T_REF/T keeps the init at the T=8 (legacy) level.
+magnitude. Measured ||A^T A|| by power iteration (H=W=64, shear=1, x=randn):
+T=8/16/24/32 = 8.0/14.7/18.8/23.4, roughly linear. Scaling x0 by T_REF/T
+keeps the init at the T=8 (legacy) level.
 
 This script measures both variants (scale x0 vs keep x0), forward-only, and
 reports ||A^T A|| and ||adj(E)|| vs T so the claim is checkable.
