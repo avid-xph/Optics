@@ -198,14 +198,17 @@ class DD_MADUNv3(nn.Module):
     B=E.shape[0]
     x=adj(E)
     T=x.shape[1]                       # T is dictated by the operator, not by self.T
-    # ||A^T A|| grows ~linearly with T (measured 8.0/15.5/20.0/25.1 at T=8/16/24/32),
+    # ||A^T A|| grows ~linearly with T (measured by power iteration,
+    # H=W=64, shear=1, x=randn: T=8/16/24/32 = 8.0/14.7/18.8/23.4),
     # so DC step sizes learned at T_REF diverge at larger T. Scale the adjoint by
     # T_REF/T: the data-term Lipschitz constant stays at the T_REF level and
     # T=T_REF is bit-identical to the legacy model.
     s=T_REF/T
     if s!=1.0:
       adj=lambda r,_adj=adj:_adj(r)*s
-      x=x*s
+      x=x*s          # x0=adj(E) grows ~linearly with T (E is a sum of T frames,
+                     # adj copies that sum back into each frame), so scaling by
+                     # T_REF/T keeps the init at the T=8 (legacy) level.
     dm=self._get_dm(T,x.device)        # DCT matrix matched to this T
     if mask_w is not None:
       # Plan B init: dark regions (mask_w~0) start from the bright-region mean
