@@ -112,6 +112,9 @@ def main():
                 print(f"[skip] {name}: {H}x{W} != {args.H}x{args.W}")
                 continue
             for T, cell, noise in grid:
+                if scene.shape[0] < T:
+                    print(f"[skip] {name}: {scene.shape[0]} frames < T={T}")
+                    continue
                 for mkey in args.methods:
                     cfg = {"device": args.device}
                     if args.iters is not None:
@@ -133,9 +136,12 @@ def main():
                         mp = sum(r["psnr"] for r in ok) / len(ok)
                         print(f"[{name}] T={T} cell={cell} noise={noise} {mkey}: "
                               f"PSNR={mp:.2f} ({len(ok)}/{len(rows)} groups)")
-                    else:
+                    elif rows:
                         print(f"[{name}] T={T} cell={cell} noise={noise} {mkey}: "
                               f"all failed ({rows[0]['err'][:60]})")
+                    else:
+                        print(f"[{name}] T={T} cell={cell} noise={noise} {mkey}: "
+                              f"no groups (scene too short for T={T})")
                     f.flush()
     print(f"\nsaved -> {args.out}")
 
