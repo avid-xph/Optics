@@ -1,8 +1,0 @@
-[aerial] T=16 cell=1 noise=0.01 e2e: PSNR=22.30 (2/2 groups)
-[crash] T=16 cell=1 noise=0.01 e2e: PSNR=22.30 (2/2 groups)
-[drop] T=16 cell=1 noise=0.01 e2e: PSNR=27.83 (2/2 groups)
-[kobe] T=16 cell=1 noise=0.01 e2e: PSNR=21.99 (2/2 groups)
-[runner] T=16 cell=1 noise=0.01 e2e: PSNR=24.76 (2/2 groups)
-[traffic] T=16 cell=1 noise=0.01 e2e: PSNR=18.37 (3/3 groups)
-
-saved -> results/ablation/anchor_e2e_T16_20261106.csv
