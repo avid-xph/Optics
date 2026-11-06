@@ -1,8 +1,9 @@
 # Protocol: T-free vs per-T specialists (5-way fair comparison) — 2026-11-07
 
-STATUS: **IN PROGRESS**. Only the T=16 specialist is training (started
-2026-11-07 00:40:39). NO comparison numbers exist yet. The matrix files are
-deliberately NOT written until `eval_*.csv` files contain real measurements.
+STATUS: **IN PROGRESS (1 of 5 models trained)**. T=16 specialist finished
+2026-11-07 04:03:09 (exit 0, 3.37 h); T=8 is next via the supervisor.
+NO comparison numbers exist yet. The matrix files are deliberately NOT written
+until `eval_*.csv` files contain real measurements.
 
 ## Goal
 Answer claim (B): does ONE T-free weight set lose accuracy at each T versus a
@@ -103,6 +104,40 @@ They are the numbers the specialists must be compared against, NOT a prediction.
   before DAVIS was enabled; the earlier synthetic-only T=16 run was 2.12 h).
 - 2026-11-07 00:55 state: epoch 3/30, step 100, `checkpoint.pth` at epoch 2,
   GPU 100% / 32086 MiB.
+
+## Run 1 — T=16 specialist, COMPLETED 2026-11-07 04:03:09 (measured, not estimated)
+
+`perT_sweep/T16/train.log`, exit code 0, `time: 3.37 h` (00:40:39 -> 04:03:09).
+DAVIS fix confirmed in the same log: `DAVIS sequences: 90 (90 with >= 16
+frames)`, `Train: 70 real + 30 synth = 100`, `Loaded 70 real video clips`.
+1500 steps completed (last log line `[step 1490] epoch 30/30 b 40/50`).
+
+| quantity (training script's own SYNTHETIC validation) | value |
+|---|---|
+| epoch 30 non-EMA `P` / SSIM | 30.92 / 0.9876 |
+| epoch 30 EMA `P` / SSIM | 20.11 / 0.8108 |
+| final `per_T["16"]` (evaluates `ema_model`) | 19.9162 / 0.8140 |
+| `best_ema` | 20.1118 @ epoch 30 |
+
+**Key finding: the EMA lag is NOT caused by the missing DAVIS data.** With real
+DAVIS clips loaded, EMA is still ~10.8 dB behind the non-EMA model at epoch 30
+(decay 0.999 over 1500 steps). Therefore any comparison using only
+`best_model.pth` / the training script's `per_T` would be systematically wrong.
+This is exactly why this protocol evaluates BOTH weight variants on the real
+benchmark; the T=16 `per_T["16"]=19.92` above is NOT a comparison result and
+MUST NOT be reported as one.
+
+Weight fingerprints (sha256, pinned 2026-11-07 04:04):
+```
+9e14448edc02de69d6dde8771fd88c2ba32ec1030f43f8186f6eb064f3e0c187  perT_sweep/T16/best_model.pth
+28c525ea55aba42d2c101e7571a30134281f9808966c71b7261d01d83248c5dc  perT_sweep/T16/checkpoint.pth
+6a3283369aaedf4439a81046302f4d6ba4aa2fc38cdbdda31e81b094f862b938  perT_sweep/T16/final_ema.pth
+```
+Loader dry-run (CPU, no GPU contention) verified that `TFreeMethod` +
+`resolve_model_cfg` accepts both `perT_sweep/T16/checkpoint.pth` (non-EMA) and
+`perT_sweep/T16/best_model.pth` (EMA) with `legacy_T=None`, cfg
+`K=8 K1=3 ng=6 nf=96 nb=8`, 295 state-dict entries. The eval path is therefore
+ready; it will run only after all 5 models exist, to keep the GPU exclusive.
 
 ## Execution mechanism (`perT_sweep.py`)
 Background bash tasks in this environment are killed around ~2 h, so the sweep
