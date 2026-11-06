@@ -1,1 +1,8 @@
 __pycache__/
+
+# perT_sweep: large weights / transient logs never committed
+perT_sweep/**/*.pth
+perT_sweep/**/train.log
+perT_sweep/**/eval_*.log
+perT_sweep/train.lock
+perT_sweep/manifest.json

@@ -254,10 +254,11 @@ model = DD_MADUNv3(T=T_LIST[0], H=args.H, W=args.W, K=args.K, K1=args.K1,
                    use_checkpoint=args.ckpt, ckpt_blocks=args.ckpt_blocks)
 if args.warm_start:
     model = warm_start_from_legacy(model, args.warm_start, args.legacy_T)
+_RESUME_CK = None
 if args.resume and os.path.exists(args.resume):
-    ck = torch.load(args.resume, map_location="cpu", weights_only=False)
-    model.load_state_dict(ck.get("model_state_dict", ck))
-    print(f"    resumed from {args.resume}")
+    _RESUME_CK = torch.load(args.resume, map_location="cpu", weights_only=False)
+    model.load_state_dict(_RESUME_CK.get("model_state_dict", _RESUME_CK))
+    print(f"    resumed from {args.resume} (epoch {_RESUME_CK.get('epoch', '?')})")
 model = model.to(DEV)
 print(f"    params: {sum(p.numel() for p in model.parameters()):,}")
 
@@ -281,6 +282,9 @@ scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 ema_model = copy.deepcopy(model).to(DEV)
 for p in ema_model.parameters():
     p.requires_grad_(False)
+if _RESUME_CK is not None and "ema_model_state_dict" in _RESUME_CK:
+    ema_model.load_state_dict(_RESUME_CK["ema_model_state_dict"])
+    print("    restored EMA model state")
 
 
 def update_ema(ema, m, decay):
@@ -311,6 +315,20 @@ n_batches = max(1, args.n_train // max(1, args.frames_per_batch // T_LIST[0]))
 best_ema = 0.0
 best_epoch = 0
 history = []
+_start_epoch = 1
+if _RESUME_CK is not None:
+    if "optimizer_state_dict" in _RESUME_CK:
+        optimizer.load_state_dict(_RESUME_CK["optimizer_state_dict"])
+    if "scheduler_state_dict" in _RESUME_CK:
+        scheduler.load_state_dict(_RESUME_CK["scheduler_state_dict"])
+    best_ema = _RESUME_CK.get("best_ema", 0.0)
+    best_epoch = _RESUME_CK.get("best_epoch", 0)
+    _start_epoch = _RESUME_CK.get("epoch", 0) + 1
+    # Keep the pre-kill training curve: without this, history.json would only
+    # contain the epochs after the last resume, which looks like a short run.
+    history = list(_RESUME_CK.get("history", []))
+    print(f"    resume: starting epoch {_start_epoch}, best_ema={best_ema:.2f}, "
+          f"restored {len(history)} history rows")
 t0 = time.time()
 
 def _sync():
@@ -319,7 +337,7 @@ def _sync():
 
 
 global_step = 0
-for epoch in range(1, args.epochs + 1):
+for epoch in range(_start_epoch, args.epochs + 1):
     model.train()
     epoch_loss = 0.0
     detail = {}
@@ -401,17 +419,19 @@ for epoch in range(1, args.epochs + 1):
                                      nf=args.nf, nb=args.nb, H=args.H, W=args.W)),
                        os.path.join(args.out_dir, "best_model.pth"))
             print(f"    ** new best EMA PSNR={ea:.2f}")
-    if epoch % 20 == 0 or epoch == args.epochs:
-        # cfg is stored so benchmark_reconstruct.py / convert_to_tfree.py can
-        # rebuild the exact architecture instead of assuming the defaults.
-        torch.save(dict(epoch=epoch, model_state_dict=model.state_dict(),
-                        ema_model_state_dict=ema_model.state_dict(),
-                        temporal=args.temporal, T_list=T_LIST,
-                        cfg=dict(K=args.K, K1=args.K1, ng=args.ng,
-                                 nf=args.nf, nb=args.nb,
-                                 temporal=args.temporal,
-                                 H=args.H, W=args.W)),
-                   os.path.join(args.out_dir, "checkpoint.pth"))
+    # Save full checkpoint every epoch for resumability
+    torch.save(dict(epoch=epoch, model_state_dict=model.state_dict(),
+                    ema_model_state_dict=ema_model.state_dict(),
+                    optimizer_state_dict=optimizer.state_dict(),
+                    scheduler_state_dict=scheduler.state_dict(),
+                    best_ema=best_ema, best_epoch=best_epoch,
+                    history=history,
+                    temporal=args.temporal, T_list=T_LIST,
+                    cfg=dict(K=args.K, K1=args.K1, ng=args.ng,
+                             nf=args.nf, nb=args.nb,
+                             temporal=args.temporal,
+                             H=args.H, W=args.W)),
+               os.path.join(args.out_dir, "checkpoint.pth"))
 
 # 4. per-T evaluation
 print("\n[4/6] Evaluating on every T ...")

@@ -1,0 +1,32 @@
+# Per-T specialist sweep — model T16 (first run)
+# Protocol: results/ablation/README_perT_sweep_20261107.md
+# Started: 2026-11-07 00:41 CST, cwd = optics_main, GPU (never CPU)
+#
+# This run REPLACES the invalid output_t16_only/ run (2026-11-06), which had
+# DAVIS sequences: 0 / 0 real + 100 synth, and whose final eval used an
+# unconverged EMA model (model P=31.06 vs EMA=19.78).
+#
+# Compute alignment (Mark's rule): 50 step/epoch x 30 epoch = 1500 steps,
+# same as T-free. n_train=100 because 100 // (32//16) = 50.
+# Verified beforehand: --davis_root ../DAVIS finds 90 sequences (90 with >=16 frames).
+#
+# Frozen inputs
+#   warm_start : checkpoints/best_model.pth  sha256 1d0602a60e26769483dc2803e7ef83d1b35cf49d7ab1218ddb0823cb26af2b21
+#   code       : git commit 144b955
+#   python     : C:/Users/Administrator/AppData/Local/Programs/Python/Python313/python.exe
+#                torch 2.11.0+cu128 / torchvision 0.26.0+cu128
+#   T=32 smoke measured ~6 s/step on this GPU (2026-11-07 00:38)
+#
+# Command (exact):
+# python -u dd_madun_v3_train_tfree.py \
+#   --T_list 16 --epochs 30 --n_train 100 \
+#   --warm_start checkpoints/best_model.pth --legacy_T 8 \
+#   --davis_root ../DAVIS --real_ratio 0.7 \
+#   --amp --ckpt --vgg_weight 0.02 \
+#   --out_dir perT_sweep/T16 --log_every 10
+#
+# Evaluation after training (NOT the training script's own synthetic per_T eval):
+#   - primary  : checkpoint.pth -> model_state_dict (non-EMA final model)
+#   - secondary: best_model.pth  -> model_state_dict (EMA weights)
+#   - data     : 6 git-tracked benchmark scenes, run_ablation.py --exp T
+#   - report BOTH so EMA convergence cannot distort the comparison again
