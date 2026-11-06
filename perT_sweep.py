@@ -9,11 +9,12 @@ Usage (cwd = optics_main):
   python perT_sweep.py status
   python perT_sweep.py next --dry-run     # what would run, without running it
   python perT_sweep.py next               # train the first unfinished model
+  python perT_sweep.py supervise          # own the whole chain until eval finishes
   python perT_sweep.py train-one --model T8
   python perT_sweep.py eval               # after all weights exist
   python perT_sweep.py report             # reprint matrices from existing CSVs
 """
-import argparse, csv, json, math, subprocess, sys, time
+import argparse, csv, json, math, os, subprocess, sys, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -22,6 +23,7 @@ PY = r"C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe
 TS = ["8", "16", "24", "32"]
 SCENES = ["aerial", "crash", "drop", "kobe", "runner", "traffic"]
 LOCK = SWEEP / "train.lock"
+SUP_LOCK = SWEEP / "supervisor.lock"
 
 # name -> (T_list, n_train). 50 step/epoch x 30 epoch = 1500 steps for ALL.
 MODELS = {
@@ -131,8 +133,76 @@ def train_one(name, dry=False):
     return rc
 
 
+def pid_alive(pid):
+    try:
+        out = subprocess.check_output(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH"], text=True, timeout=30)
+        return str(pid) in out
+    except Exception:
+        return False
+
+
+def supervisor_alive():
+    """PID of a live supervisor, or None. A stale lock is ignored."""
+    if not SUP_LOCK.exists():
+        return None
+    try:
+        pid = int(SUP_LOCK.read_text(encoding="utf-8").strip())
+    except Exception:
+        return None
+    return pid if pid_alive(pid) else None
+
+
+def supervise(poll=60, budget_h=24):
+    """One process owns the whole chain: wait for the current trainer, start the
+    next unfinished model, repeat, then evaluate. Terminates when the matrix is
+    produced (or after budget_h). Safe to re-invoke: the lock prevents two
+    supervisors, and `live_trainers()` prevents two GPU jobs."""
+    other = supervisor_alive()
+    if other:
+        print(f"[abort] supervisor pid={other} already owns the chain")
+        return 2
+    SWEEP.mkdir(parents=True, exist_ok=True)
+    SUP_LOCK.write_text(str(os.getpid()), encoding="utf-8")
+    deadline = time.time() + budget_h * 3600
+    slog = SWEEP / "supervisor.log"
+    try:
+        while time.time() < deadline:
+            live = live_trainers()
+            if live is None:
+                print("[abort] cannot detect trainers; refusing to risk two jobs",
+                      flush=True)
+                return 2
+            if live:
+                with open(slog, "a", encoding="utf-8") as f:
+                    f.write(f"{time.strftime('%F %T')} waiting: trainer {live}\n")
+                time.sleep(poll)
+                continue
+            todo = [m for m in ORDER if not is_done(SWEEP / m)]
+            with open(slog, "a", encoding="utf-8") as f:
+                f.write(f"{time.strftime('%F %T')} remaining={todo}\n")
+            if not todo:
+                print("[all-done] every model complete; running eval", flush=True)
+                evaluate()
+                return 0
+            print(f"[supervise] starting {todo[0]}", flush=True)
+            rc = train_one(todo[0])
+            if rc:
+                print(f"[warn] {todo[0]} exited rc={rc}; re-invoke to resume",
+                      flush=True)
+                return rc
+        print("[supervise] time budget reached; re-invoke to continue")
+        return 0
+    finally:
+        SUP_LOCK.unlink(missing_ok=True)
+
+
 def train_next(dry=False):
     """Pick the first unfinished model, but NEVER start a second GPU job."""
+    sup = supervisor_alive()
+    if sup:
+        print(f"[busy] supervisor pid={sup} owns the chain; nothing to start")
+        return 0
     live = live_trainers()
     if live is None:
         print("[abort] could not determine whether a trainer is alive; "
@@ -245,6 +315,9 @@ if __name__ == "__main__":
     p1.add_argument("--dry-run", action="store_true")
     p2 = sub.add_parser("next")
     p2.add_argument("--dry-run", action="store_true")
+    p3 = sub.add_parser("supervise")
+    p3.add_argument("--poll", type=int, default=60)
+    p3.add_argument("--budget-hours", type=float, default=24)
     sub.add_parser("eval")
     sub.add_parser("report")
     sub.add_parser("status")
@@ -253,6 +326,8 @@ if __name__ == "__main__":
         sys.exit(train_one(a.model, a.dry_run) or 0)
     elif a.cmd == "next":
         sys.exit(train_next(a.dry_run) or 0)
+    elif a.cmd == "supervise":
+        sys.exit(supervise(a.poll, a.budget_hours) or 0)
     elif a.cmd == "eval":
         evaluate()
     elif a.cmd == "report":

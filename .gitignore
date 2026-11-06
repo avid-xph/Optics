@@ -6,3 +6,6 @@ perT_sweep/**/train.log
 perT_sweep/**/eval_*.log
 perT_sweep/train.lock
 perT_sweep/manifest.json
+perT_sweep/supervisor.lock
+perT_sweep/supervisor.log
+perT_sweep/supervisor_stdout.log

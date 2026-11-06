@@ -96,12 +96,13 @@ They are the numbers the specialists must be compared against, NOT a prediction.
 ## Measured cost (real numbers from the running job, 2026-11-07 00:50)
 `perT_sweep/T16/train.log` with DAVIS real data:
 - step 0 at 10s, step 40 at 405s, epoch 1 finished at 495s (incl. eval),
-  step 60 at 590s -> steady state ~8.8 s/step.
-- 1500 steps -> ~3.7 h/model + epoch evals -> ~3.8 h.
-- 5 models serial, GPU exclusive -> **~19 h total** (not the 10-14 h estimated
+  step 60 at 590s, step 100 at 895s -> steady state ~7.6-8.8 s/step
+  (first epoch is slower: cuDNN autotune / data warmup).
+- 1500 steps -> ~3.2-3.7 h/model + 30 epoch evals -> **~3.3-3.8 h**.
+- 5 models serial, GPU exclusive -> **~16-19 h total** (not the 10-14 h estimated
   before DAVIS was enabled; the earlier synthetic-only T=16 run was 2.12 h).
-- 2026-11-07 00:50 state: epoch 1/30 complete, `checkpoint.pth` at epoch 1,
-  GPU 100% / 32082 MiB.
+- 2026-11-07 00:55 state: epoch 3/30, step 100, `checkpoint.pth` at epoch 2,
+  GPU 100% / 32086 MiB.
 
 ## Execution mechanism (`perT_sweep.py`)
 Background bash tasks in this environment are killed around ~2 h, so the sweep
@@ -110,9 +111,18 @@ is chained ONE MODEL PER INVOCATION:
 python perT_sweep.py status          # epoch-level progress, no fabrication
 python perT_sweep.py next --dry-run  # what would run
 python perT_sweep.py next            # start first unfinished model, or refuse if busy
+python perT_sweep.py supervise       # OWNS the chain: wait -> train -> ... -> eval
 python perT_sweep.py eval            # after all 5 weights exist
 python perT_sweep.py report          # reprint matrices from existing CSVs
 ```
+- A supervisor was launched 2026-11-07 00:55 (background task `OF5FRi`,
+  `--poll 120 --budget-hours 24`). It waits while T=16 trains, then
+  automatically starts T8 -> T24 -> T32 -> tfree, then runs `eval` and writes
+  the matrices. It terminates when the matrix is produced. If its task is
+  killed, re-invoke `python perT_sweep.py supervise` (or `next`) and the
+  stale lock is ignored automatically.
+- `supervisor.lock` ensures only ONE owner of the chain; `train.lock` marks the
+  active trainer. `next` refuses if either a supervisor or a trainer is alive.
 - `next` refuses to start if any live `dd_madun_v3_train_tfree.py` process exists.
 - Every epoch writes `checkpoint.pth` (model + EMA + optimizer + scheduler +
   best_ema + history), so a killed run resumes losslessly via `--resume`.
