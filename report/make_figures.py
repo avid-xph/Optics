@@ -1,6 +1,6 @@
 """Report figures from results/ablation/*.csv.
 
-  python report/make_figures.py      -> report/figures/fig_T.png
+  python report/make_figures.py      -> report/figures/fig_T.png, fig_cell_ideal.png
 
 Averaging matches the reports: mean over windows per scene, then mean over scenes.
 Only T with all 6 scenes are plotted (T=36/40 have 3 scenes and are left out).
@@ -28,13 +28,18 @@ SERIES = [  # (label, method key, csv files, color, marker)
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 
 
-def scene_mean(files, method):
-    per = defaultdict(lambda: defaultdict(list))      # T -> scene -> [psnr]
+def scene_mean(files, method, by="T"):
+    """by="T": cell=1 rows keyed by T; by="cell": T=8 rows keyed by cell."""
+    per = defaultdict(lambda: defaultdict(list))      # key -> scene -> [psnr]
     for fn in files:
         with open(os.path.join(RES, fn), encoding="utf-8") as f:
             for r in csv.DictReader(f):
-                if r["method"] == method and not r["err"] and r["cell"] == "1":
+                if r["method"] != method or r["err"]:
+                    continue
+                if by == "T" and r["cell"] == "1":
                     per[int(r["T"])][r["scene"]].append(float(r["psnr"]))
+                elif by == "cell" and r["T"] == "8":
+                    per[int(r["cell"])][r["scene"]].append(float(r["psnr"]))
     out = {}
     for T, sc in per.items():
         if len(sc) == 6:
@@ -42,10 +47,49 @@ def scene_mean(files, method):
     return dict(sorted(out.items()))
 
 
-def fig_T():
+def _axes():
     fig, ax = plt.subplots(figsize=(6.4, 4.0), dpi=200)
     fig.patch.set_facecolor("#fcfcfb")
     ax.set_facecolor("#fcfcfb")
+    ax.grid(axis="y", color=GRID, lw=0.8)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    for s in ("left", "bottom"):
+        ax.spines[s].set_color(INK2)
+    ax.tick_params(colors=INK2, labelsize=8)
+    return fig, ax
+
+
+def _save(fig, name):
+    fig.tight_layout()
+    os.makedirs(OUT, exist_ok=True)
+    path = os.path.join(OUT, name)
+    fig.savefig(path, facecolor=fig.get_facecolor())
+    print("saved", path)
+
+
+def fig_cell():
+    """Task 2, ideal mask imaging (no blur / misregistration): PSNR vs cell at T=8."""
+    fig, ax = _axes()
+    for label, key, files, color, marker in [
+            ("ADMM-TV", "admm_tv", ["exp_cell_v2.csv"], "#eb6834", "s"),
+            ("TwIST", "twist", ["exp_cell_twist_v3.csv"], "#1baf7a", "^")]:
+        d = scene_mean(files, key, by="cell")
+        cs, ps = list(d), list(d.values())
+        ax.plot(cs, ps, color=color, lw=2, marker=marker, ms=6,
+                markeredgecolor="#fcfcfb", markeredgewidth=1.5, label=label, zorder=3)
+        ax.annotate(label, (cs[-1], ps[-1]), xytext=(6, 0),
+                    textcoords="offset points", va="center", fontsize=8, color=INK2)
+    ax.set_xticks([1, 2, 3, 4, 5, 6, 8, 10])
+    ax.set_xlim(0.5, 11.5)
+    ax.set_xlabel("Coding cell size c (CCD pixels), ideal mask imaging", color=INK)
+    ax.set_ylabel("PSNR (dB), 6-scene mean, T=8", color=INK)
+    ax.legend(frameon=False, fontsize=8, loc="upper right")
+    _save(fig, "fig_cell_ideal.png")
+
+
+def fig_T():
+    fig, ax = _axes()
     for label, key, files, color, marker in SERIES:
         d = scene_mean(files, key)
         Ts, ps = list(d), list(d.values())
@@ -68,19 +112,10 @@ def fig_T():
     ax.set_xlim(6, 37)
     ax.set_xlabel("Frames per snapshot T", color=INK)
     ax.set_ylabel("PSNR (dB), 6-scene mean", color=INK)
-    ax.grid(axis="y", color=GRID, lw=0.8)
-    for s in ("top", "right"):
-        ax.spines[s].set_visible(False)
-    for s in ("left", "bottom"):
-        ax.spines[s].set_color(INK2)
-    ax.tick_params(colors=INK2, labelsize=8)
     ax.legend(frameon=False, fontsize=8, loc="upper right")
-    fig.tight_layout()
-    os.makedirs(OUT, exist_ok=True)
-    path = os.path.join(OUT, "fig_T.png")
-    fig.savefig(path, facecolor=fig.get_facecolor())
-    print("saved", path)
+    _save(fig, "fig_T.png")
 
 
 if __name__ == "__main__":
     fig_T()
+    fig_cell()
