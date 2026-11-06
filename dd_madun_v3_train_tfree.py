@@ -29,6 +29,7 @@ from baselines import compute_psnr, compute_ssim
 from video_dataset import create_mixed_dataset
 from dd_madun_v3_tfree import DD_MADUNv3, DDMADUNLossv3, build_dct_matrix
 from warm_start import warm_start_from_legacy
+from sci_ablation.forward import build_block_mask
 
 # ----------------------------------------------------------------------------
 parser = argparse.ArgumentParser(description="DD-MADUN v3 T-free training")
@@ -57,6 +58,9 @@ parser.add_argument("--real_ratio", type=float, default=0.7)
 parser.add_argument("--davis_root", type=str, default="DAVIS")
 parser.add_argument("--frames_per_batch", type=int, default=32,
                     help="B*T budget; B = max(1, budget//T). 32 fits most GPUs")
+parser.add_argument("--cells", type=int, nargs="+", default=[1],
+                    help="coding cell sizes; each training step draws one at random "
+                         "(fresh mask every step). Evaluation always uses cell=1.")
 parser.add_argument("--noise_std", type=float, default=0.01)
 parser.add_argument("--motion_blur_prob", type=float, default=0.0,
                     help="probability per training clip of applying a directional "
@@ -122,6 +126,7 @@ print(f"  temporal    : {args.temporal}")
 print(f"  model       : K={args.K} K1={args.K1} ng={args.ng} nf={args.nf} nb={args.nb}")
 print(f"  spatial     : {args.H}x{args.W}   shear={args.shear}   device={DEV}")
 print(f"  B*T budget  : {args.frames_per_batch}   ckpt={args.ckpt}   ckpt_blocks={args.ckpt_blocks}   amp={args.amp}")
+print(f"  train cells : {args.cells}")
 print("=" * 72)
 
 
@@ -289,9 +294,13 @@ def update_ema(ema, m, decay):
             ep.data.mul_(decay).add_(mp.data, alpha=1 - decay)
 
 
-def make_cup(T):
+def make_cup(T, train=False):
+    """Fresh random mask each call. Training draws the cell size from --cells;
+    evaluation keeps the pixel-level mask (cell=1) so val PSNR stays comparable."""
+    cell = random.choice(args.cells) if train else 1
+    mask = build_block_mask(args.H, args.W, cell) if cell > 1 else None
     return CUPForwardModel(H=args.H, W=args.W, T=T, shear_per_frame=args.shear,
-                           real_cup=True, device=DEV).to(DEV)
+                           real_cup=True, device=DEV, mask=mask).to(DEV)
 
 
 def run_model(m, E, cup, mask_w=None):
@@ -333,7 +342,7 @@ for epoch in range(1, args.epochs + 1):
                     motion_blur_len_range=(args.motion_blur_len_min, args.motion_blur_len_max))
         if do_profile: _sync(); t_data = time.time()
 
-        cup = make_cup(T)
+        cup = make_cup(T, train=True)
         E_clean = cup.forward(gt)
         E = E_clean + args.noise_std * torch.randn_like(E_clean)
         if do_profile: _sync(); t_cupfwd = time.time()
