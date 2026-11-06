@@ -1,7 +1,8 @@
 """迭代法的纯 torch 实现（GPU 上跑, 不经 numpy）.
 
 与 baselines.py 的 real_cup 分支同一套算法与默认超参:
-  twist    : IST + 两步加速, 步长 1/L（L 由幂迭代估计）
+  twist    : IST + 两步加速, 步长 1/L（L 由幂迭代估计）; 近端算子用 TV
+             （baselines.py 用像素域软阈值, 几乎没有先验, 只有 ~10 dB, 这里不再沿用）
   admm_l1  : ADMM, x 子问题 (AᵀA + ρI) x = Aᵀy + ρ(z - u) 用 CG
   admm_tv  : ADMM + 各向异性 TV, x 子问题 (AᵀA + ρDᵀD) x = Aᵀy + ρDᵀ(z - p)
              所有帧一起解（baselines.py 是逐帧解, 每帧都算一次完整 AᵀA, O(T²)）
@@ -38,15 +39,25 @@ def _lipschitz(fwd, adj, shape, device, n_iter=30, seed=0):
     return adj(fwd(v)).norm()
 
 
+def _tv_prox(x, w, n_iter=10):
+    """argmin_y 0.5||y-x||² + w·TV_aniso(y), projected gradient on the dual (step 1/8)."""
+    p = torch.zeros((2,) + x.shape, device=x.device)
+    for _ in range(n_iter):
+        p = torch.clamp(p - 0.125 * _grad(_div(p) - x / w), -1, 1)
+    return x - w * _div(p)
+
+
 @torch.no_grad()
-def twist(E, fwd, adj, T, n_iters=200, lambda_tv=0.01, alpha=0.9):
+def twist(E, fwd, adj, T, n_iters=200, lambda_tv=0.05, alpha=0.9):
+    # The prox is TV, not a pixel-domain soft-threshold: shrinking raw pixel
+    # values is almost no prior for natural video and left TwIST at ~10 dB
+    # (14.4 dB on kobe T=8 vs 25.4 dB with TV, ADMM-TV 26.6 dB).
     x = adj(E)
     beta = 1.0 / _lipschitz(fwd, adj, x.shape, E.device)
-    thresh = lambda_tv * beta
     x_prev = x
     for it in range(n_iters):
         x_half = torch.clamp(x - beta * adj(fwd(x) - E), -100, 100)
-        x_new = torch.sign(x_half) * torch.clamp(x_half.abs() - thresh, min=0)
+        x_new = _tv_prox(x_half, lambda_tv * beta)
         if it > 0:
             x_new = (1 - alpha) * x_prev + alpha * x_new
         x_prev, x = x, x_new
