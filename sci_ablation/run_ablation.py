@@ -50,11 +50,12 @@ def run_group(method, cup, gt, T, device):
 
 
 def evaluate(method, scene, T, cell, noise_std, H, W, shear,
-             seed=0, device="cpu", mode="disjoint"):
+             seed=0, device="cpu", mode="disjoint", psf_sigma=0.0, mask_shift=0.0):
     """一个 (方法, 场景, T, cell, noise) 组合 → 每窗口一行记录."""
     rows = []
     cup = ExperimentCUP(H=H, W=W, T=T, shear=shear, cell=cell,
-                        noise_std=noise_std, device=device, seed=seed)
+                        noise_std=noise_std, device=device, seed=seed,
+                        psf_sigma=psf_sigma, mask_shift=mask_shift)
     for s, gt in data.iter_groups(scene, T, mode):
         gt = gt.to(device)
         try:
@@ -83,6 +84,10 @@ def main():
     ap.add_argument("--W", type=int, default=256)
     ap.add_argument("--shear", type=int, default=1)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--psf_sigma", type=float, default=0.0,
+                    help="mask 成像到 CCD 的高斯 PSF σ（像元）, 仅作用于测量（任务⑥）")
+    ap.add_argument("--mask_shift", type=float, default=0.0,
+                    help="mask 与像元网格的亚像元错位（像元）, 仅作用于测量（任务⑥）")
     ap.add_argument("--group", choices=["disjoint", "overlap"], default="disjoint")
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     ap.add_argument("--out", required=True, help="输出 CSV 路径")
@@ -100,7 +105,8 @@ def main():
         grid = [(args.Ts[0], args.cells[0], n) for n in args.noise]
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
-    fieldnames = ["exp", "method", "scene", "T", "cell", "noise", "group_start",
+    fieldnames = ["exp", "method", "scene", "T", "cell", "noise", "psf_sigma",
+                  "mask_shift", "group_start",
                   "psnr", "ssim", "sec", "err"]
     with open(args.out, "w", newline="", encoding="utf-8") as f:
         wcsv = csv.DictWriter(f, fieldnames=fieldnames)
@@ -126,10 +132,12 @@ def main():
                     method = build_method(mkey, cfg)
                     rows = evaluate(method, scene, T, cell, noise,
                                     H, W, args.shear, args.seed, args.device,
-                                    args.group)
+                                    args.group, args.psf_sigma, args.mask_shift)
                     for (s, _), r in zip(data.iter_groups(scene, T, args.group), rows):
                         wcsv.writerow(dict(exp=args.exp, method=mkey, scene=name,
                                            T=T, cell=cell, noise=noise,
+                                           psf_sigma=args.psf_sigma,
+                                           mask_shift=args.mask_shift,
                                            group_start=s, **r))
                     ok = [r for r in rows if not r["err"]]
                     if ok:
