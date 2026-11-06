@@ -1,0 +1,8 @@
+[aerial] T=8 cell=1 noise=0.01 ddmadun: PSNR=26.40 (4/4 groups)
+[crash] T=8 cell=1 noise=0.01 ddmadun: PSNR=26.39 (4/4 groups)
+[drop] T=8 cell=1 noise=0.01 ddmadun: PSNR=39.81 (5/5 groups)
+[kobe] T=8 cell=1 noise=0.01 ddmadun: PSNR=29.86 (4/4 groups)
+[runner] T=8 cell=1 noise=0.01 ddmadun: PSNR=33.58 (5/5 groups)
+[traffic] T=8 cell=1 noise=0.01 ddmadun: PSNR=24.33 (6/6 groups)
+
+saved -> results/ablation/ddmadun_T8_20261107.csv
