@@ -1,0 +1,38 @@
+[
+  {
+    "model": "T8",
+    "cmd": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe -u dd_madun_v3_train_tfree.py --T_list 8 --n_train 200 --epochs 30 --warm_start checkpoints/best_model.pth --legacy_T 8 --davis_root ../DAVIS --real_ratio 0.7 --amp --ckpt --vgg_weight 0.02 --log_every 10 --out_dir perT_sweep/T8",
+    "exit": 0,
+    "resumed": false,
+    "started": 1793995468.1001685,
+    "ended": 1794004977.0194068,
+    "complete": true
+  },
+  {
+    "model": "T24",
+    "cmd": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe -u dd_madun_v3_train_tfree.py --T_list 24 --n_train 50 --epochs 30 --warm_start checkpoints/best_model.pth --legacy_T 8 --davis_root ../DAVIS --real_ratio 0.7 --amp --ckpt --vgg_weight 0.02 --log_every 10 --out_dir perT_sweep/T24",
+    "exit": 0,
+    "resumed": false,
+    "started": 1794004977.570147,
+    "ended": 1794010491.1565986,
+    "complete": true
+  },
+  {
+    "model": "T32",
+    "cmd": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe -u dd_madun_v3_train_tfree.py --T_list 32 --n_train 50 --epochs 30 --warm_start checkpoints/best_model.pth --legacy_T 8 --davis_root ../DAVIS --real_ratio 0.7 --amp --ckpt --vgg_weight 0.02 --log_every 10 --out_dir perT_sweep/T32",
+    "exit": 0,
+    "resumed": false,
+    "started": 1794010491.724769,
+    "ended": 1794024640.2269447,
+    "complete": true
+  },
+  {
+    "model": "tfree",
+    "cmd": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python313\\python.exe -u dd_madun_v3_train_tfree.py --T_list 8 16 24 32 --n_train 200 --epochs 30 --warm_start checkpoints/best_model.pth --legacy_T 8 --davis_root ../DAVIS --real_ratio 0.7 --amp --ckpt --vgg_weight 0.02 --log_every 10 --out_dir perT_sweep/tfree",
+    "exit": 0,
+    "resumed": false,
+    "started": 1794024640.6635318,
+    "ended": 1794032210.5809731,
+    "complete": true
+  }
+]

@@ -1,0 +1,3 @@
+
+# driver 2026-11-07 06:42:57 resume=False
+# C:\Users\Administrator\AppData\Local\Programs\Python\Python313\python.exe -u dd_madun_v3_train_tfree.py --T_list 24 --n_train 50 --epochs 30 --warm_start checkpoints/best_model.pth --legacy_T 8 --davis_root ../DAVIS --real_ratio 0.7 --amp --ckpt --vgg_weight 0.02 --log_every 10 --out_dir perT_sweep/T24

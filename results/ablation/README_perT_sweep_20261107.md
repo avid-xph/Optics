@@ -1,9 +1,17 @@
 # Protocol: T-free vs per-T specialists (5-way fair comparison) — 2026-11-07
 
-STATUS: **IN PROGRESS (1 of 5 models trained)**. T=16 specialist finished
-2026-11-07 04:03:09 (exit 0, 3.37 h); T=8 is next via the supervisor.
-NO comparison numbers exist yet. The matrix files are deliberately NOT written
-until `eval_*.csv` files contain real measurements.
+STATUS: **COMPLETE**. All 5 models trained and evaluated 2026-11-07 14:25 CST
+(supervisor exit 0, 13.5 h). 648 eval rows, 0 errors. The matrices exist and
+are REAL measurements.
+
+>>> **RESULTS: `results/ablation/RESULTS_perT_sweep_20261107.md`** <<<
+(full 12x4 PSNR/SSIM matrices, claim-(B) answer, reproducibility audit, and
+a critical correction: the original T-free run used `--n_train 800` = 6000
+steps, not the 1500 steps inferred here — see the results file §5).
+
+This file remains the FROZEN PRE-REGISTRATION protocol (written before any
+specialist was evaluated). It is kept unmodified below except for this status
+header and the measured Run-1 section, so the pre/post distinction is auditable.
 
 ## Goal
 Answer claim (B): does ONE T-free weight set lose accuracy at each T versus a
