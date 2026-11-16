@@ -13,3 +13,6 @@ perT_sweep/supervisor_stdout.log
 perT_sweep_v2/**/*.pth
 perT_sweep_v2/**/train.log
 perT_sweep_v2/**/*.log
+
+# datasets live in dataset/ and are never committed
+dataset/

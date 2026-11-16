@@ -8,7 +8,7 @@ File stem = label, e.g. tfree_nonEMA, T8_nonEMA, published_tfree_EMA
   python report/plot_perT.py --eval_dir perT_sweep --out report/figures/perT_v1   # v1 data
 
 Writes <out>.png, <out>.pdf, <out>_table.md. Means are flat over all disjoint
-windows of all scenes (same aggregation as RESULTS_perT_sweep_20261107.md).
+windows of all scenes (same aggregation as 20261107_perT_sweep_v1_results.md).
 """
 import argparse
 import csv

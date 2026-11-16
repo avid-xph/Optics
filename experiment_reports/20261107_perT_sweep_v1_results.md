@@ -190,7 +190,7 @@ the fair primary.
   are informational; diagonal conclusions are unchanged either way.
 - Only 4 T values, 6 scenes, cell=1, noise=0.01, shear=1, disjoint windows,
   seed=0. Unseen-T generalization (12/20/28) is established separately in
-  `README_tfree_realT_20261107.md`, not here.
+  `20261107_tfree_realT.md`, not here.
 - Aggregation is flat-window mean; scene-first means differ.
 - **No fabricated values.** Every cell came from an `eval_*.csv`; missing data
   would be reported as "not measured".

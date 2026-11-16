@@ -4,7 +4,7 @@ STATUS: **COMPLETE**. All 5 models trained and evaluated 2026-11-07 14:25 CST
 (supervisor exit 0, 13.5 h). 648 eval rows, 0 errors. The matrices exist and
 are REAL measurements.
 
->>> **RESULTS: `results/ablation/RESULTS_perT_sweep_20261107.md`** <<<
+>>> **RESULTS: `experiment_reports/20261107_perT_sweep_v1_results.md`** <<<
 (full 12x4 PSNR/SSIM matrices, claim-(B) answer, reproducibility audit, and
 a critical correction: the original T-free run used `--n_train 800` = 6000
 steps, not the 1500 steps inferred here — see the results file §5).
@@ -19,7 +19,7 @@ specialist trained ONLY on that T with identical compute? Needs a 5 x 4 PSNR/SSI
 matrix on REAL benchmark scenes.
 
 Claim (A) ("one weight set reconstructs multiple T") is already answered by a
-separate real experiment: `results/ablation/README_tfree_realT_20261107.md`,
+separate real experiment: `experiment_reports/20261107_tfree_realT.md`,
 commit `144b955`. That experiment does NOT answer claim (B).
 
 ## Scope decision

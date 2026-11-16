@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Per-T sweep v2: T-free vs 4 per-T specialists, converged AND data-matched.
 #
-# Fixes the two confounds of v1 (results/ablation/RESULTS_perT_sweep_20261107.md):
+# Fixes the two confounds of v1 (experiment_reports/20261107_perT_sweep_v1_results.md):
 #   1. v1 trained 1500 steps -> EMA unconverged. v2: 6000 steps for every model
 #      (= the published T-free run, output_tfree / checkpoints/tfree_trained).
 #   2. v1 gave the T=8 specialist 4x the clips of T-free's T=8 share. v2: every
@@ -22,7 +22,7 @@ cd "$(dirname "$0")/.."
 OUT=perT_sweep_v2
 PY=${PY:-python}
 GPUS=(${GPUS:-0})
-DAVIS=${DAVIS:-DAVIS}
+DAVIS=${DAVIS:-dataset/DAVIS}
 EVAL_TS="8 12 16 20 24 28 32"     # 12/20/28: no specialist exists -> T-free only
 MODELS=(${MODELS:-tfree T8 T16 T24 T32})   # override to split models across machines
 declare -A TLIST=([tfree]="8 16 24 32" [T8]=8 [T16]=16 [T24]=24 [T32]=32)
