@@ -14,6 +14,7 @@
 #   GPUS="0" bash perT_sweep/run_v2.sh eval
 #   bash perT_sweep/run_v2.sh plot
 #   GPUS="0 1 2 3 4" bash perT_sweep/run_v2.sh all
+#   MODELS="T32" GPUS="0" bash perT_sweep/run_v2.sh train   # one model on another box
 # Re-running `train` resumes every unfinished model from its checkpoint.pth.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -23,7 +24,7 @@ PY=${PY:-python}
 GPUS=(${GPUS:-0})
 DAVIS=${DAVIS:-DAVIS}
 EVAL_TS="8 12 16 20 24 28 32"     # 12/20/28: no specialist exists -> T-free only
-MODELS=(tfree T8 T16 T24 T32)     # tfree first: it is the reference row
+MODELS=(${MODELS:-tfree T8 T16 T24 T32})   # override to split models across machines
 declare -A TLIST=([tfree]="8 16 24 32" [T8]=8 [T16]=16 [T24]=24 [T32]=32)
 declare -A NTRAIN=([tfree]=800 [T8]=200 [T16]=200 [T24]=200 [T32]=200)
 
@@ -66,6 +67,7 @@ train() {
 eval_one() {  # label weight_path gpu
   local csv=$OUT/eval/$1.csv
   [ -s "$csv" ] && { echo "[skip] eval $1"; return; }
+  [ -f "$2" ] || { echo "[skip] eval $1: $2 missing"; return; }
   echo "[eval] $1 <- $2"
   CUDA_VISIBLE_DEVICES=$3 $PY -m sci_ablation.run_ablation --exp T --Ts $EVAL_TS \
     --methods tfree --ckpt "tfree=$2" --device cuda --out "$csv" \
