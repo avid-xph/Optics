@@ -18,14 +18,14 @@ RAW=$ROOT/raw
 HF=https://huggingface.co/datasets/yinloonga/YouTube_VOS_2019/resolve/main
 SPLITS=${SPLITS:-valid test}
 mkdir -p "$RAW" "$ROOT/JPEGImages/480p"
-command -v 7z >/dev/null || { apt-get update -qq && apt-get install -y -qq p7zip-full >/dev/null; }
+command -v 7z >/dev/null && command -v aria2c >/dev/null || { apt-get update -qq && apt-get install -y -qq p7zip-full aria2 >/dev/null; }
 
 for s in $SPLITS; do
   if [ -f "$ROOT/$s.done" ]; then echo "[skip] $s"; continue; fi
   for part in 001 002; do
     f=$RAW/${s}_all_frames.7z.$part
     echo "[download] $f"
-    wget -q -c "$HF/${s}_all_frames_zip/${s}_all_frames.7z.$part" -O "$f"
+    aria2c -q -c -x16 -s16 -k4M -d "$RAW" -o "$(basename "$f")" "$HF/${s}_all_frames_zip/${s}_all_frames.7z.$part"
   done
   echo "[extract] $s"
   7z x -y -bd -o"$RAW/$s" "$RAW/${s}_all_frames.7z.001" >/dev/null
