@@ -13,23 +13,24 @@ from pathlib import Path
 from PIL import Image
 
 H = 480
+EXTS = {".jpg", ".jpeg", ".png"}   # output is always .jpg (video_dataset.py globs *.jpg)
 
 
 def resize_video(args):
     src, dst = args
     dst.mkdir(parents=True, exist_ok=True)
-    for f in sorted(src.glob("*.jpg")):
-        im = Image.open(f)
+    for f in sorted(p for p in src.iterdir() if p.suffix.lower() in EXTS):
+        im = Image.open(f).convert("RGB")
         w, h = im.size
         if h != H:
             im = im.resize((round(w * H / h), H), Image.BICUBIC)
-        im.save(dst / f.name, quality=95)
+        im.save(dst / (f.stem + ".jpg"), quality=95)
     return src.name
 
 
 def main():
     src, dst, prefix = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
-    videos = sorted({p.parent for p in src.rglob("*.jpg")})
+    videos = sorted({p.parent for p in src.rglob("*") if p.suffix.lower() in EXTS})
     jobs = [(v, dst / f"{prefix}_{v.name}") for v in videos]
     print(f"{len(jobs)} videos under {src}")
     with Pool(max(1, os.cpu_count() // 2)) as pool:   # leave half the cores to training

@@ -43,9 +43,15 @@ for s in $SPLITS; do
   done
   echo "[extract] $s"
   7z x -y -bd -o"$RAW/$s" "$RAW/${s}_all_frames.7z.001" >/dev/null
-  rm -f "$RAW/${s}_all_frames.7z."*
+  echo "[layout] $s: $(find "$RAW/$s" -type f | wc -l) files; extensions:"
+  find "$RAW/$s" -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -5
+  find "$RAW/$s" -maxdepth 3 | head -8
   echo "[resize] $s -> 480p"
   python data_prep/resize_to_480p.py "$RAW/$s" "$ROOT/JPEGImages/480p" "$s"
+  n=$(ls "$ROOT/JPEGImages/480p" | grep -c "^${s}_" || true)
+  # keep the archives and extracted files when nothing came out, so the cause can be inspected
+  [ "$n" -gt 0 ] || { echo "[FAIL] $s produced 0 videos; raw data kept in $RAW"; exit 1; }
+  rm -f "$RAW/${s}_all_frames.7z."*
   rm -rf "$RAW/$s"
   touch "$ROOT/$s.done"
   echo "[done] $s: $(ls "$ROOT/JPEGImages/480p" | grep -c "^${s}_") videos"
