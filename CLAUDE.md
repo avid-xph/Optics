@@ -18,6 +18,7 @@
 | 目录 | 放什么 |
 |---|---|
 | `dataset/` | 所有训练数据集，例如 `dataset/DAVIS/JPEGImages/480p/<序列>/*.jpg`。**不进 git** |
+| `data_prep/` | 下载、整理数据集的脚本（例如 `prepare_youtubevos.sh`）；输出写到 `dataset/` |
 | `benchmark/` | 6 个评估场景（`*.mat`），进 git，不要改 |
 | `checkpoints/` | 已发布的权重：legacy T=8（`best_model.pth`）、published T-free（`tfree_trained/`） |
 | `perT_sweep_v2/` | v2 实验的输出：每个模型一个子目录（权重、日志），评估 CSV 在 `eval/` |
