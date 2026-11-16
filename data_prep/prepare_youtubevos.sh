@@ -20,12 +20,26 @@ SPLITS=${SPLITS:-valid test}
 mkdir -p "$RAW" "$ROOT/JPEGImages/480p"
 command -v 7z >/dev/null && command -v aria2c >/dev/null || { apt-get update -qq && apt-get install -y -qq p7zip-full aria2 >/dev/null; }
 
+# sha256 of each volume, from the Hugging Face API (LFS oid)
+declare -A SHA=(
+  [valid.001]=77c515a350d1847f72eedf2f5cb2ff4bed63a01b2a4b14f74f59e3487ece2811
+  [valid.002]=8fe271a7f7f0354fd805c03eda5d30e8bd13f45278f5be715d04065a3a3edf1e
+  [test.001]=807f3c9d5d4a2e9b1a060cce75f7313a05ddcadada04697b212941ed8a565076
+  [test.002]=775274f9530a327c0a25a2eb197b8eaedf816506b107f4abecc9c45a0abcab52
+)
+
 for s in $SPLITS; do
   if [ -f "$ROOT/$s.done" ]; then echo "[skip] $s"; continue; fi
   for part in 001 002; do
     f=$RAW/${s}_all_frames.7z.$part
-    echo "[download] $f"
-    aria2c -q -c -x16 -s16 -k4M -d "$RAW" -o "$(basename "$f")" "$HF/${s}_all_frames_zip/${s}_all_frames.7z.$part"
+    for attempt in 1 2 3; do
+      [ -f "$f" ] && [ ! -f "$f.aria2" ] && [ "$(sha256sum "$f" | cut -d' ' -f1)" = "${SHA[$s.$part]}" ] && break
+      echo "[download] $f (attempt $attempt)"
+      rm -f "$f" "$f.aria2"
+      aria2c -q -x16 -s16 -k4M -d "$RAW" -o "$(basename "$f")" "$HF/${s}_all_frames_zip/${s}_all_frames.7z.$part" || true
+    done
+    [ "$(sha256sum "$f" | cut -d' ' -f1)" = "${SHA[$s.$part]}" ] || { echo "[FAIL] $f checksum"; exit 1; }
+    echo "[ok] $f sha256 verified"
   done
   echo "[extract] $s"
   7z x -y -bd -o"$RAW/$s" "$RAW/${s}_all_frames.7z.001" >/dev/null
