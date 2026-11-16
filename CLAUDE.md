@@ -47,7 +47,7 @@
 ## 常用命令
 
 ```bash
-# v2：T-free + 4 个专训模型，每个 6000 步，每个 T 用 200 段相同的视频
+# v2：T-free + 4 个专训模型，每个 6000 步，每个 T 都是 200 段视频（来自同一批视频序列）
 MODELS="tfree T8 T16 T24" GPUS="0 1 2 3" bash perT_sweep/run_v2.sh all
 MODELS="T32" GPUS="0" bash perT_sweep/run_v2.sh train      # 拆到另一台机器上跑
 bash perT_sweep/run_v2.sh eval && bash perT_sweep/run_v2.sh plot

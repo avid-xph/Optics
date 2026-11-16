@@ -5,8 +5,9 @@
 #   1. v1 trained 1500 steps -> EMA unconverged. v2: 6000 steps for every model
 #      (= the published T-free run, output_tfree / checkpoints/tfree_trained).
 #   2. v1 gave the T=8 specialist 4x the clips of T-free's T=8 share. v2: every
-#      model sees exactly 200 clips per T (create_mixed_dataset seed = seed+T,
-#      so specialist T and T-free's T split are the SAME clips).
+#      model sees exactly 200 clips per T, drawn from the same sequences
+#      (sequence choice uses seed+T; crop/start positions use the global RNG, so
+#      they match only for T=8, the first T loaded).
 # Steps are fixed by --steps_per_epoch, not n_train, so compute is identical.
 #
 # Usage (repo root, Linux):
