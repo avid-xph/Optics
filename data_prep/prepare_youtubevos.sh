@@ -52,8 +52,9 @@ for s in $SPLITS; do
     echo "[unzip] $z"; unzip -q -o "$z" -d "$(dirname "$z")" && rm -f "$z"
   done
   echo "[layout] $s: $(find "$RAW/$s" -type f | wc -l) files; extensions:"
-  find "$RAW/$s" -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -5
-  find "$RAW/$s" -maxdepth 3 | head -8
+  # (|| true: head closing the pipe early must not trip set -o pipefail)
+  find "$RAW/$s" -type f | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -5 || true
+  find "$RAW/$s" -maxdepth 3 | head -8 || true
   echo "[resize] $s -> 480p"
   python data_prep/resize_to_480p.py "$RAW/$s" "$ROOT/JPEGImages/480p" "$s"
   n=$(ls "$ROOT/JPEGImages/480p" | grep -c "^${s}_" || true)
