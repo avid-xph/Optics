@@ -23,6 +23,7 @@
 | `checkpoints/` | 已发布的权重：legacy T=8（`best_model.pth`）、published T-free（`tfree_trained/`） |
 | `perT_sweep_v2/` | v2 实验的输出：每个模型一个子目录（权重、日志），评估 CSV 在 `eval/` |
 | `experiment_reports/` | **所有实验报告**（md），命名格式为 `YYYYMMDD_主题.md` |
+| `handoff/` | 交给其他机器或其他人执行的任务说明（自包含，照做即可） |
 | `results/` | 实验的原始数据（CSV），报告里引用这里的路径 |
 | `report/` | 画图和分析脚本；生成的图放在 `report/figures/` |
 | `pic/` | 汇报 PPT 用的图，文件名以页码开头（`p04_...png`） |
