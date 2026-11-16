@@ -8,3 +8,8 @@ perT_sweep/train.lock
 perT_sweep/supervisor.lock
 perT_sweep/supervisor.log
 perT_sweep/supervisor_stdout.log
+
+# perT_sweep_v2: weights / logs stay on the GPU box
+perT_sweep_v2/**/*.pth
+perT_sweep_v2/**/train.log
+perT_sweep_v2/**/*.log

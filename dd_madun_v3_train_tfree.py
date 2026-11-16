@@ -57,6 +57,9 @@ parser.add_argument("--real_ratio", type=float, default=0.7)
 parser.add_argument("--davis_root", type=str, default="DAVIS")
 parser.add_argument("--frames_per_batch", type=int, default=32,
                     help="B*T budget; B = max(1, budget//T). 32 fits most GPUs")
+parser.add_argument("--steps_per_epoch", type=int, default=0,
+                    help="optimizer steps per epoch; 0 = derive from n_train. "
+                         "Decouples compute from dataset size (per-T sweep v2)")
 parser.add_argument("--noise_std", type=float, default=0.01)
 parser.add_argument("--motion_blur_prob", type=float, default=0.0,
                     help="probability per training clip of applying a directional "
@@ -311,7 +314,7 @@ def run_model(m, E, cup, mask_w=None):
 
 # 3. train
 print(f"\n[3/6] Training ({args.epochs} epochs) ...")
-n_batches = max(1, args.n_train // max(1, args.frames_per_batch // T_LIST[0]))
+n_batches = args.steps_per_epoch or max(1, args.n_train // max(1, args.frames_per_batch // T_LIST[0]))
 best_ema = 0.0
 best_epoch = 0
 history = []
