@@ -21,3 +21,7 @@ dataset/
 Remote/
 perT_sweep_scaleA/**/*.pth
 perT_sweep_scaleA/**/*.log
+
+# long T-free run (handoff/tfree_long_training.md): weights / logs stay on the GPU box
+perT_sweep_long/**/*.pth
+perT_sweep_long/**/*.log

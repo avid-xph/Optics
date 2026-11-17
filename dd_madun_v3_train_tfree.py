@@ -105,6 +105,8 @@ parser.add_argument("--ckpt_blocks", action="store_true",
                          "only add this if --ckpt alone still runs out of memory")
 parser.add_argument("--amp", action="store_true", help="bf16 autocast")
 # --- init ---
+parser.add_argument("--snapshot_every", type=int, default=0,
+                    help="every N epochs also save model-only snapshots/eNNN_{nonEMA,EMA}.pth (0 = off)")
 parser.add_argument("--resume", type=str, default=None, help="T-free checkpoint to resume from")
 parser.add_argument("--warm_start", type=str, default=None,
                     help="legacy T-bound checkpoint; adapts head/tail shapes by averaging")
@@ -435,6 +437,17 @@ for epoch in range(_start_epoch, args.epochs + 1):
                              temporal=args.temporal,
                              H=args.H, W=args.W)),
                os.path.join(args.out_dir, "checkpoint.pth"))
+    # Model-only snapshots (non-EMA + current EMA) to evaluate a long run at intermediate points
+    if args.snapshot_every and epoch % args.snapshot_every == 0:
+        snap = os.path.join(args.out_dir, "snapshots")
+        os.makedirs(snap, exist_ok=True)
+        meta = dict(epoch=epoch, step=epoch * n_batches, T_list=T_LIST, temporal=args.temporal,
+                    cfg=dict(K=args.K, K1=args.K1, ng=args.ng, nf=args.nf, nb=args.nb,
+                             temporal=args.temporal, H=args.H, W=args.W))
+        torch.save(dict(meta, model_state_dict=model.state_dict()),
+                   os.path.join(snap, f"e{epoch:03d}_nonEMA.pth"))
+        torch.save(dict(meta, model_state_dict=ema_model.state_dict()),
+                   os.path.join(snap, f"e{epoch:03d}_EMA.pth"))
 
 # 4. per-T evaluation
 print("\n[4/6] Evaluating on every T ...")
