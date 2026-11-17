@@ -1,0 +1,4 @@
+31dad5da39dc27b299ff59e5c7f72b7f3cbf9bf0176935a76cec8c92a21fd1f2  checkpoint.pth
+930e0db124db7cd6a068754f9590a676f5da6eea5f6064ecfcefab28216947b2  best_model.pth
+# source (full, with optimizer state; not in git): perT_sweep_scaleA/tfree/checkpoint.pth
+dc5087715385016fb9aab391284a08ec4580e45d5ff5508aa006a3be1f9e7c82  perT_sweep_scaleA/tfree/checkpoint.pth

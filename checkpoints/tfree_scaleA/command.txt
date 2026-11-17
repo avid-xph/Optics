@@ -1,0 +1,2 @@
+2026-11-17 00:50:04 gpu=0 sha256(init)=9e2f40bb158af264
+python -u dd_madun_v3_train_tfree.py --T_list 8 16 24 32 --n_train 8000 --warm_start perT_sweep_v2/tfree/checkpoint.pth --epochs 30 --steps_per_epoch 200 --warmup_epochs 3 --legacy_T 8 --davis_root dataset/merged --real_ratio 0.7 --seed 42 --amp --ckpt --ckpt_blocks --vgg_weight 0.02 --log_every 50 --out_dir perT_sweep_scaleA/tfree
