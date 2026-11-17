@@ -62,7 +62,8 @@ def style(ax):
 
 
 def curves(ax, data, key, Ts, ylabel):
-    for name in ["published_tfree", *SPECS, "tfree"]:
+    # published_tfree is left to the table: its curve sits within 0.03 dB of tfree and is hidden under it
+    for name in [*SPECS, "tfree"]:
         if name not in data:
             continue
         d = data[name][key]
