@@ -20,8 +20,10 @@
 | `dataset/` | 所有训练数据集，例如 `dataset/DAVIS/JPEGImages/480p/<序列>/*.jpg`。**不进 git** |
 | `data_prep/` | 下载、整理数据集的脚本（例如 `prepare_youtubevos.sh`）；输出写到 `dataset/` |
 | `benchmark/` | 6 个评估场景（`*.mat`），进 git，不要改 |
-| `checkpoints/` | 已发布的权重：legacy T=8（`best_model.pth`）、published T-free（`tfree_trained/`） |
+| `checkpoints/` | 已发布的权重：legacy T=8（`best_model.pth`）、published T-free（`tfree_trained/`）、A 阶段 T-free（`tfree_scaleA/`，长训练的起点） |
 | `perT_sweep_v2/` | v2 实验的输出：每个模型一个子目录（权重、日志），评估 CSV 在 `eval/` |
+| `perT_sweep_scaleA/` | A 阶段（加数据续训 6k 步）的评估 CSV（`eval/`）；权重在服务器和 `Remote/` |
+| `Remote/` | 从 GPU 服务器下载的本地备份：`Remote/<模型>/<阶段>/` 下的完整权重和日志。**不进 git** |
 | `experiment_reports/` | **所有实验报告**（md），命名格式为 `YYYYMMDD_主题.md` |
 | `handoff/` | 交给其他机器或其他人执行的任务说明（自包含，照做即可） |
 | `results/` | 实验的原始数据（CSV），报告里引用这里的路径 |

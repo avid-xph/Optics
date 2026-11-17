@@ -16,3 +16,8 @@ perT_sweep_v2/**/*.log
 
 # datasets live in dataset/ and are never committed
 dataset/
+
+# local backup of server weights/logs (large)
+Remote/
+perT_sweep_scaleA/**/*.pth
+perT_sweep_scaleA/**/*.log
